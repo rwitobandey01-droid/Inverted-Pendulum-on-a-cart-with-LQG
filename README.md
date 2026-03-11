@@ -17,6 +17,7 @@ A full nonlinear simulation of a cart-pole system implementing energy-based swin
 ---
 
 ## Theory
+<img width="1920" height="1080" alt="Screenshot from 2026-03-12 02-57-19" src="https://github.com/user-attachments/assets/53187e25-937e-46ae-bdc0-b5ec48b6fa96" />
 
 ### System
 
