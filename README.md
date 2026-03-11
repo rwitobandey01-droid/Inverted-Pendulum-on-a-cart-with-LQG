@@ -242,3 +242,7 @@ python main.py
 - Åström & Furuta (2000) — *Swinging up a pendulum by energy control*
 - Ogata — *Modern Control Engineering*
 - Franklin, Powell & Emami-Naeini — *Feedback Control of Dynamic Systems*
+
+
+https://github.com/user-attachments/assets/966454bd-162c-438b-a9cf-957102cb1ce7
+
