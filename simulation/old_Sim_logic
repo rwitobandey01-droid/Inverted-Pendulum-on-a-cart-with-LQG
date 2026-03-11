@@ -1,0 +1,102 @@
+import numpy as np
+from scipy.integrate import solve_ivp
+from dynamics.nonlinear import cartpole_nonlinear
+
+
+def simulate(initial_state, K, params, t_final=10):
+
+    x_hat = np.zeros(4)  # state estimate for control, initialized to zero
+
+    def closed_loop(t, state):
+        # Create error state for control (upright at theta = pi)
+        state_for_control = state.copy()
+        state_for_control[2] -= np.pi   # shift angle to upright reference
+        # I did this because my LQR wants to take my state to 0 here 180 so i changed the coordinate system to make the upright position correspond to 0. If you want to keep the original coordinate system, just use state directly and make sure your LQR is designed for that.
+        
+        #if abs(state[2] - np.pi) > 0.3:  # if pendulum angle exceeds 30 degrees, print a warning
+        #   print("leaveing linear region: theta =", state[2])
+        # LQR control law
+        u = (K @ state_for_control).item()
+
+        # Pass original state to nonlinear dynamics
+        return cartpole_nonlinear(t, state, u, params)
+    
+    t_eval = np.linspace(0, t_final, 1000)
+
+    sol = solve_ivp(
+        closed_loop,
+        [0, t_final],
+        initial_state,
+        #max_step=0.005,
+        t_eval=t_eval,
+        rtol=1e-6,
+        atol=1e-8
+    )
+
+    return sol
+
+
+
+"""""with kalman filter"""
+import numpy as np
+from scipy.integrate import solve_ivp
+from dynamics.nonlinear import cartpole_nonlinear
+
+
+def simulate(initial_state, K, A, B, C, L, params, t_final=10, x_ref=0):
+
+    # observer initial estimate (shifted angle)
+    initial_estimate = np.array([
+        initial_state[0],
+        initial_state[1],
+        initial_state[2] - np.pi,
+        initial_state[3]
+    ])
+
+    # augmented state [plant_state ; observer_state]
+    Z0 = np.hstack((initial_state, initial_estimate))
+    x_ref_vec = np.array([x_ref, 0, 0, 0]) # reference state (upright at origin)
+
+    def closed_loop(t, Z):
+
+        # true plant state
+        state = Z[:4]
+        x, x_dot, theta, theta_dot = state
+
+        # observer state (shifted coordinates)
+        x_hat = Z[4:]
+
+        # measurement (x and shifted angle)
+        theta_shift = theta - np.pi
+        y = np.array([x, theta_shift])
+
+        #reference tracking error (in shifted coordinates)
+        error = x_hat - x_ref_vec
+
+        # control from LQR (uses observer state)
+        u = float(-K @ error)
+
+        # nonlinear plant dynamics (true coordinates)
+        x_dot_vec = cartpole_nonlinear(t, state, u, params)
+
+        # observer dynamics (linear model around upright)
+        innovation = y - C @ x_hat
+        x_hat_dot = A @ x_hat + B.flatten() * u + L @ innovation
+
+        return np.concatenate((x_dot_vec, x_hat_dot))
+
+
+    t_eval = np.linspace(0, t_final, 1000)
+
+    sol = solve_ivp(
+        closed_loop,
+        [0, t_final],
+        Z0,
+        method="RK45",
+        t_eval=t_eval,
+        max_step=0.01,
+        rtol=1e-6,
+        atol=1e-8
+    )
+
+    return sol
